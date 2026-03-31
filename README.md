@@ -70,4 +70,4 @@ line-following-robot/
 
 ## 👨‍💻 Author
 Eshwar Prasad Y
-ECE | Embedded Systems
+| ECE | Embedded Systems
