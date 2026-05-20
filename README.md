@@ -45,19 +45,6 @@ This project is an autonomous line following robot built using Arduino Uno, TCRT
 ## 🎥 Demo Video
 https://youtu.be/0k2JIg4Dxvs
 
----
-
-## 📂 Project Structure
-
-```
-line-following-robot/
-│
-├── code/
-│   └── line_follower.ino
-├──diagrams/
-├── images/
-└── docs/
-```
 
 ---
 
