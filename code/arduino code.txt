@@ -1,147 +1,307 @@
-/*
-* LINE FOLLOWER ROBOT - 100% WORKING
-* Sensors: 1 = BLACK, 0 = WHITE
-* Motors: All forward confirmed working
-* ADDED: LED blinking + Buzzer beeping
-*/
-// ============ PIN DEFINITIONS ============
-// IR Sensors
-#define LEFT_SENSOR 2
-#define RIGHT_SENSOR 3
-// Motor Driver L298N
-#define ENA 5
-#define IN1 6
-#define IN2 7
-#define IN3 4
-#define IN4 8
-#define ENB 9
+/**
+ * @file Line_Follower_Robot.ino
+ * @brief Complete Line Follower Robot with Visual and Audio Feedback
+ * 
+ * This code implements a fully functional line follower robot using IR sensors
+ * to detect a black line on a white surface. The robot navigates by following
+ * the line, with LED indicators and buzzer feedback for different states.
+ * 
+ * ## Features
+ * - Dual IR sensor line detection (TCRT5000 or similar)
+ * - L298N motor driver control for differential steering
+ * - Visual feedback with Red and Green LEDs
+ * - Audio feedback with piezo buzzer
+ * - Automatic line following with turn detection
+ * - Line loss detection with alert system
+ * 
+ * ## Sensor Logic
+ * - Sensor reads 1 = BLACK line detected
+ * - Sensor reads 0 = WHITE surface detected
+ * 
+ * ## Behavior
+ * - **Both BLACK**: Move forward (Green LED ON)
+ * - **Left BLACK, Right WHITE**: Turn left (Red LED + Beep)
+ * - **Left WHITE, Right BLACK**: Turn right (Red LED + Beep)
+ * - **Both WHITE**: Line lost - Stop and alert (Blink LEDs + Beep)
+ * 
+ * ## Hardware Requirements
+ * - Arduino Uno/Nano/Mega
+ * - 2x TCRT5000 IR sensors (or similar)
+ * - L298N Dual H-Bridge Motor Driver
+ * - 2x DC Motors with wheels
+ * - 2x LEDs (Red and Green) with 220Ω resistors
+ * - 1x Piezo Buzzer (active or passive)
+ * - 6-12V Power supply for motors
+ * - 5V supply for Arduino
+ * 
+ * @author Line Follower Project
+ * @version 2.0.0
+ * @date 2024
+ */
+
+// ============================================
+//                          PIN DEFINITIONS
+// ============================================
+
+// IR Sensor Pins (TCRT5000 or similar reflective sensors)
+#define LEFT_SENSOR 2    /**< Left IR sensor digital input */
+#define RIGHT_SENSOR 3   /**< Right IR sensor digital input */
+
+// L298N Motor Driver Pins
+#define ENA 5            /**< Left motor speed (PWM pin) */
+#define IN1 6            /**< Left motor direction 1 */
+#define IN2 7            /**< Left motor direction 2 */
+#define IN3 4            /**< Right motor direction 1 */
+#define IN4 8            /**< Right motor direction 2 */
+#define ENB 9            /**< Right motor speed (PWM pin) */
+
 // LEDs and Buzzer
-#define LED_RED 12
-#define LED_GREEN 13
-#define BUZZER 11
-// ============ SPEED SETTINGS ============
-#define SPEED 90
-// ============ SETUP ============
+#define LED_RED 12       /**< Red LED indicator for turns and errors */
+#define LED_GREEN 13     /**< Green LED indicator for forward movement */
+#define BUZZER 11        /**< Piezo buzzer for audio feedback */
+
+// ============================================
+//                          SPEED SETTINGS
+// ============================================
+
+#define SPEED 90         /**< Motor speed (0-255) - Optimized for stability */
+
+// ============================================
+//                          SETUP
+// ============================================
+
+/**
+ * @brief Arduino setup function - Initializes all pins and peripherals
+ * 
+ * This function:
+ * 1. Configures all pins as INPUT/OUTPUT
+ * 2. Stops motors to ensure safe startup
+ * 3. Performs startup sequence with LED and buzzer test
+ * 4. Delays 2 seconds to allow robot placement on track
+ */
 void setup() {
-// Sensor pins
-pinMode(LEFT_SENSOR, INPUT);
-pinMode(RIGHT_SENSOR, INPUT);
-// Motor pins
-pinMode(ENA, OUTPUT);
-pinMode(ENB, OUTPUT);
-pinMode(IN1, OUTPUT);
-pinMode(IN2, OUTPUT);
-pinMode(IN3, OUTPUT);
-pinMode(IN4, OUTPUT);
-// LED pins
-pinMode(LED_RED, OUTPUT);
-pinMode(LED_GREEN, OUTPUT);
-// Buzzer pin
-pinMode(BUZZER, OUTPUT);
-// Stop motors
-stop();
-// Startup blink and beep
-digitalWrite(LED_RED, HIGH);
-digitalWrite(LED_GREEN, HIGH);
-tone(BUZZER, 1000, 200);
-delay(300);
-digitalWrite(LED_RED, LOW);
-digitalWrite(LED_GREEN, LOW);
-delay(200);
-digitalWrite(LED_RED, HIGH);
-digitalWrite(LED_GREEN, HIGH);
-tone(BUZZER, 1200, 200);
-delay(300);
-digitalWrite(LED_RED, LOW);
-digitalWrite(LED_GREEN, LOW);
-// Wait 2 seconds to place robot on track
-delay(2000);
+  // Initialize IR sensor pins as inputs
+  pinMode(LEFT_SENSOR, INPUT);
+  pinMode(RIGHT_SENSOR, INPUT);
+
+  // Initialize motor control pins as outputs
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // Initialize LED pins as outputs
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+
+  // Initialize buzzer pin as output
+  pinMode(BUZZER, OUTPUT);
+
+  // Ensure motors are stopped at startup
+  stop();
+
+  /**
+   * @brief Startup sequence - Test all indicators
+   * Flashes both LEDs and beeps twice to confirm functionality
+   */
+  // First flash - both LEDs ON with 1000Hz tone
+  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  tone(BUZZER, 1000, 200);  /**< 200ms beep at 1000Hz */
+  delay(300);                /**< Wait for beep to complete */
+  
+  // Turn LEDs OFF
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  delay(200);                /**< Brief pause between beeps */
+  
+  // Second flash - both LEDs ON with 1200Hz tone
+  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  tone(BUZZER, 1200, 200);  /**< 200ms beep at 1200Hz */
+  delay(300);                /**< Wait for beep to complete */
+  
+  // Turn LEDs OFF
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+
+  /**
+   * @brief Startup delay
+   * Gives user time to place robot on the line track
+   */
+  delay(2000);  /**< 2 second delay for robot placement */
 }
-// ============ MAIN LOOP ============
+
+// ============================================
+//                          MAIN LOOP
+// ============================================
+
+/**
+ * @brief Main program loop - Continuously follows the line
+ * 
+ * Reads both IR sensors and determines robot behavior:
+ * - Both sensors see black: Go forward
+ * - Left sees black, right sees white: Turn left
+ * - Left sees white, right sees black: Turn right
+ * - Both sensors see white: Line lost - stop and alert
+ * 
+ * Visual and audio feedback is provided for each state.
+ */
 void loop() {
-// Read sensors
-int left = digitalRead(LEFT_SENSOR);
-int right = digitalRead(RIGHT_SENSOR);
-// Both sensors on BLACK line -> GO FORWARD
-if (left == 1 && right == 1) {
-forward();
-// Green LED ON, Red OFF (Going straight)
-digitalWrite(LED_GREEN, HIGH);
-digitalWrite(LED_RED, LOW);
-noTone(BUZZER); // No sound when going straight
+  // Read current sensor states (1 = BLACK, 0 = WHITE)
+  int left = digitalRead(LEFT_SENSOR);
+  int right = digitalRead(RIGHT_SENSOR);
+
+  // ============================================
+  // STATE 1: BOTH SENSORS ON BLACK LINE
+  // ============================================
+  if (left == 1 && right == 1) {
+    forward();                          /**< Move forward */
+    
+    // Visual feedback: Green LED ON, Red OFF
+    digitalWrite(LED_GREEN, HIGH);      /**< Green indicates forward motion */
+    digitalWrite(LED_RED, LOW);
+    
+    // Audio feedback: No sound when going straight
+    noTone(BUZZER);
+  }
+
+  // ============================================
+  // STATE 2: TURN LEFT (Line curves left)
+  // ============================================
+  else if (left == 1 && right == 0) {
+    turnLeft();                         /**< Turn left */
+    
+    // Visual feedback: Red LED ON, Green OFF
+    digitalWrite(LED_RED, HIGH);        /**< Red indicates turning */
+    digitalWrite(LED_GREEN, LOW);
+    
+    // Audio feedback: Short beep when turning left
+    tone(BUZZER, 800, 50);              /**< 50ms beep at 800Hz */
+  }
+
+  // ============================================
+  // STATE 3: TURN RIGHT (Line curves right)
+  // ============================================
+  else if (left == 0 && right == 1) {
+    turnRight();                        /**< Turn right */
+    
+    // Visual feedback: Red LED ON, Green OFF
+    digitalWrite(LED_RED, HIGH);        /**< Red indicates turning */
+    digitalWrite(LED_GREEN, LOW);
+    
+    // Audio feedback: Short beep when turning right
+    tone(BUZZER, 1000, 50);             /**< 50ms beep at 1000Hz (slightly different pitch) */
+  }
+
+  // ============================================
+  // STATE 4: LINE LOST (Both sensors on white)
+  // ============================================
+  else {
+    stop();                             /**< Stop motors immediately */
+    
+    /**
+     * @brief Line lost alert - Blinking LEDs
+     * Both LEDs blink alternately to indicate error state
+     */
+    static unsigned long lastBlink = 0;  /**< Last blink time tracker */
+    static bool blinkState = false;      /**< Current blink state toggle */
+    
+    if (millis() - lastBlink > 300) {    /**< Blink every 300ms */
+      blinkState = !blinkState;          /**< Toggle state */
+      digitalWrite(LED_RED, blinkState); /**< Update LEDs */
+      digitalWrite(LED_GREEN, blinkState);
+      lastBlink = millis();              /**< Reset timer */
+    }
+    
+    /**
+     * @brief Line lost alert - Beeping
+     * Buzzer beeps every 500ms to alert line loss
+     */
+    static unsigned long lastBeep = 0;   /**< Last beep time tracker */
+    
+    if (millis() - lastBeep > 500) {     /**< Beep every 500ms */
+      tone(BUZZER, 600, 100);            /**< 100ms beep at 600Hz (lower pitch for alert) */
+      lastBeep = millis();               /**< Reset timer */
+    }
+  }
 }
-// Left on BLACK, Right on WHITE -> TURN LEFT
-else if (left == 1 && right == 0) {
-turnLeft();
-// Red LED blinking fast (Turning left)
-digitalWrite(LED_RED, HIGH);
-digitalWrite(LED_GREEN, LOW);
-tone(BUZZER, 800, 50); // Short beep when turning
-}
-// Right on BLACK, Left on WHITE -> TURN RIGHT
-else if (left == 0 && right == 1) {
-turnRight();
-// Red LED blinking fast (Turning right)
-digitalWrite(LED_RED, HIGH);
-digitalWrite(LED_GREEN, LOW);
-tone(BUZZER, 1000, 50); // Short beep when turning
-}
-// Both sensors on WHITE -> LINE LOST -> STOP
-else {
-stop();
-// Both LEDs blinking (Line lost)
-static unsigned long lastBlink = 0;
-static bool blinkState = false;
-if (millis() - lastBlink > 300) {
-blinkState = !blinkState;
-digitalWrite(LED_RED, blinkState);
-digitalWrite(LED_GREEN, blinkState);
-lastBlink = millis();
-}
-// Beep when line lost
-static unsigned long lastBeep = 0;
-if (millis() - lastBeep > 500) {
-tone(BUZZER, 600, 100);
-lastBeep = millis();
-}
-}
-}
-// ============ MOTOR FUNCTIONS ============
+
+// ============================================
+//                          MOTOR FUNCTIONS
+// ============================================
+
+/**
+ * @brief Move robot forward
+ * 
+ * Both motors rotate forward at the defined speed.
+ * Creates straight-line motion.
+ */
 void forward() {
-// Left motors FORWARD
-digitalWrite(IN1, HIGH);
-digitalWrite(IN2, LOW);
-analogWrite(ENA, SPEED);
-// Right motors FORWARD
-digitalWrite(IN3, HIGH);
-digitalWrite(IN4, LOW);
-analogWrite(ENB, SPEED);
+  // Left motor: FORWARD
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  analogWrite(ENA, SPEED);
+
+  // Right motor: FORWARD
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENB, SPEED);
 }
+
+/**
+ * @brief Turn robot left (pivot turn)
+ * 
+ * Left motor stops, right motor moves forward.
+ * Robot pivots around the left wheel.
+ */
 void turnLeft() {
-// Left motors STOP
-digitalWrite(IN1, LOW);
-digitalWrite(IN2, LOW);
-analogWrite(ENA, 0);
-// Right motors FORWARD
-digitalWrite(IN3, HIGH);
-digitalWrite(IN4, LOW);
-analogWrite(ENB, SPEED);
+  // Left motor: STOP
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  analogWrite(ENA, 0);
+
+  // Right motor: FORWARD
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENB, SPEED);
 }
+
+/**
+ * @brief Turn robot right (pivot turn)
+ * 
+ * Right motor stops, left motor moves forward.
+ * Robot pivots around the right wheel.
+ */
 void turnRight() {
-// Left motors FORWARD
-digitalWrite(IN1, HIGH);
-digitalWrite(IN2, LOW);
-analogWrite(ENA, SPEED);
-// Right motors STOP
-digitalWrite(IN3, LOW);
-digitalWrite(IN4, LOW);
-analogWrite(ENB, 0);
+  // Left motor: FORWARD
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  analogWrite(ENA, SPEED);
+
+  // Right motor: STOP
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENB, 0);
 }
+
+/**
+ * @brief Stop all motors
+ * 
+ * Sets all motor control pins to LOW and applies 0 PWM.
+ * Brakes the motors to a full stop.
+ */
 void stop() {
-digitalWrite(IN1, LOW);
-digitalWrite(IN2, LOW);
-digitalWrite(IN3, LOW);
-digitalWrite(IN4, LOW);
-analogWrite(ENA, 0);
-analogWrite(ENB, 0);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
 }
+
+// ============================================
+//                          END OF CODE
+// ============================================
