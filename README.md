@@ -58,3 +58,10 @@ https://youtu.be/0k2JIg4Dxvs
 ## 👨‍💻 Author
 Eshwar Prasad Y
 | ECE | Embedded Systems
+
+---
+## 📧 CONTACT:
+ Email: eshwargowda313@gmail.com
+ 
+ LinkedIn: linkedin.com/in/eshwar-prasad-y-a3043b370
+---
