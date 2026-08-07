@@ -6,7 +6,8 @@ This project is an autonomous line following robot built using Arduino Uno, TCRT
 ---
 
 ## 📸 Project Image
-![image 1](https://github.com/user-attachments/assets/a2ad30e9-47c1-4f88-84df-1d08b1cd01cf)
+<img width="1599" height="899" alt="image 3" src="https://github.com/user-attachments/assets/1cb91d14-c0cb-4dc4-971e-fa07dd8cd553" />
+
 
 ---
 
